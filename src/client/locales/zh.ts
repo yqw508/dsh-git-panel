@@ -223,6 +223,12 @@ export const zh = {
   'overview.fetch': '拉取远程',
   'overview.branchesError': '分支加载失败',
   'overview.filterBranch': '按分支筛选',
+
+  'overview.branchSearch': '搜索分支或标签',
+
+  'overview.branchSearchClear': '清除搜索',
+
+  'overview.branchSearchEmpty': '没有名称包含“{query}”的分支或标签',
   'overview.moreFilters': '更多筛选',
   'overview.backToList': '返回',
   'overview.createTag': '创建标签',

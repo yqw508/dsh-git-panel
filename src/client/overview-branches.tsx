@@ -3,7 +3,7 @@
  * compact bottom sheet. Split out of OverviewTab so the tree rendering and the
  * sheet's overlay contract sit in one place.
  */
-import { createElement as h, useRef } from 'react'
+import { createElement as h, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { JSX } from 'react'
 import type { GitBranch } from './types.js'
@@ -65,22 +65,53 @@ export interface BranchScrollProps {
   readonly trees: BranchTrees
 }
 
+/** Case-insensitive substring match on the full ref name (`origin/feat/x`).
+ * `needle` is already trimmed and lower-cased. */
+export function branchMatches(name: string, needle: string): boolean {
+  return name.toLowerCase().includes(needle)
+}
+
+/** Prune a folded tree to the refs whose full name matches: leaves and a dir's
+ * own `self` branch are tested; a dir left with nothing is dropped. */
+export function filterBranchNodes(nodes: readonly BranchTreeNode[], needle: string): BranchTreeNode[] {
+  const out: BranchTreeNode[] = []
+  for (const node of nodes) {
+    if (node.kind === 'leaf') {
+      if (branchMatches(node.branch.name, needle)) out.push(node)
+      continue
+    }
+    const children = filterBranchNodes(node.children, needle)
+    const self = node.self !== null && branchMatches(node.self.name, needle) ? node.self : null
+    if (children.length === 0 && self === null) continue
+    out.push({ ...node, self, children })
+  }
+  return out
+}
+
+/** Number of refs (leaves plus dir `self` branches) in a folded tree. */
+function countRefs(nodes: readonly BranchTreeNode[]): number {
+  let n = 0
+  for (const node of nodes) n += node.kind === 'leaf' ? 1 : (node.self === null ? 0 : 1) + countRefs(node.children)
+  return n
+}
+
 /** The branch tree's scroller, with the panel's travelling fill behind the
  * history filter row (see row-slider.tsx): picking another ref slides the
  * highlight instead of repainting two rows in a single frame. With no filter
  * there is no fill; the checked-out branch carries its own mark (HEAD chip and
  * icon colour), so the two never compete for the same cue. Folding a section
  * moves the rows below it, so the fold set is part of what the fill is
- * measured from. */
+ * measured from; so is the name search, which removes rows. */
 export function BranchScroll({ tree, treeError, activeRef, closed, cbs, trees }: BranchScrollProps): JSX.Element {
-  const slider = useRowSlider({ activeSelector: '.gp-branch-row--active', deps: [activeRef, tree, trees, closed] })
+  const [query, setQuery] = useState('')
+  const slider = useRowSlider({ activeSelector: '.gp-branch-row--active', deps: [activeRef, tree, trees, closed, query] })
   return h('div', { className: 'gp-col-left__scroll', ref: slider.ref }, [
     slider.slider,
-    renderBranchList(tree, treeError, activeRef, closed, cbs, trees),
+    renderBranchList(tree, treeError, activeRef, closed, cbs, trees, query, setQuery),
   ])
 }
 
-function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef: string | null, closed: ReadonlySet<string>, cb: BranchCbs, trees: BranchTrees): JSX.Element {
+function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef: string | null, closed: ReadonlySet<string>, cb: BranchCbs, trees: BranchTrees, query: string, onQuery: (query: string) => void): JSX.Element {
   if (treeError) {
     return h('div', { className: 'gp-empty' }, [
       h('span', { key: 'm' }, cb.t('overview.branchesError')),
@@ -88,6 +119,10 @@ function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef
     ])
   }
   if (tree === null) return h('div', { className: 'gp-empty' }, cb.t('common.loading'))
+  // Name search: while it holds text every section and dir is shown open, so a
+  // match is never hidden behind a fold; clearing it restores the fold state.
+  const needle = query.trim().toLowerCase()
+  const searching = needle !== ''
   /** One branch row. `label` is the last path segment; `title` keeps the full ref. */
   const branchRow = (b: GitBranch, label: string, depth: number, sectionKey: string, icon: JSX.Element): JSX.Element => {
     const ref = b.name
@@ -144,7 +179,10 @@ function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef
       // sections and top-level dirs start open, deeper dirs start closed so a
       // remote with many `origin/feat/*` refs does not unfold the whole tree.
       const defaultOpen = depth === 0
-      const open = closed.has(dirKey) ? !defaultOpen : defaultOpen
+      const open = searching || (closed.has(dirKey) ? !defaultOpen : defaultOpen)
+      // While searching the folds are forced open; a toggle would change the
+      // saved fold state without any visible effect, so it is ignored.
+      const toggle = searching ? undefined : (): void => cb.onToggle(dirKey)
       rows.push(h('div', {
         key: dirKey,
         className: 'gp-branch-row gp-branch-row--dir',
@@ -153,9 +191,9 @@ function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef
         role: 'button',
         tabIndex: 0,
         'aria-expanded': open,
-        onClick: () => cb.onToggle(dirKey),
+        onClick: toggle,
         onKeyDown: (e: KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cb.onToggle(dirKey) }
+          if (toggle !== undefined && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle() }
         },
       }, [
         h('span', { key: 'c', className: 'gp-branch-row__chev' }, h(ChevronIcon, { size: 11, open })),
@@ -168,24 +206,59 @@ function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef
       walk(node.children, depth + 1, sectionKey, icon, rows)
     }
   }
-  const section = (key: string, labelKey: GitKey, count: number, icon: JSX.Element, nodes: readonly BranchTreeNode[], pinned: readonly GitBranch[] = []): JSX.Element => {
+  let matched = 0
+  const section = (key: string, labelKey: GitKey, count: number, icon: JSX.Element, allNodes: readonly BranchTreeNode[], allPinned: readonly GitBranch[] = []): JSX.Element | null => {
+    const nodes = searching ? filterBranchNodes(allNodes, needle) : allNodes
+    const pinned = searching ? allPinned.filter((b) => branchMatches(b.name, needle)) : allPinned
+    const hits = searching ? pinned.length + countRefs(nodes) : count
+    matched += hits
+    // A section without a match is left out while searching instead of
+    // showing an empty heading.
+    if (searching && hits === 0) return null
+    const open = searching || !closed.has(key)
     const rows: JSX.Element[] = []
-    if (!closed.has(key)) {
+    if (open) {
       for (const branch of pinned) rows.push(branchRow(branch, branch.name, 0, key, icon))
       walk(nodes, 0, key, icon, rows)
     }
+    const toggle = searching ? undefined : (): void => cb.onToggle(key)
     return h('div', { key, className: 'gp-branch-group' }, [
       h('div', {
-        key: 'head', className: 'gp-branch-group__head', role: 'button', tabIndex: 0, 'aria-expanded': !closed.has(key),
-        onClick: () => cb.onToggle(key),
-        onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cb.onToggle(key) } },
+        key: 'head', className: 'gp-branch-group__head', role: 'button', tabIndex: 0, 'aria-expanded': open,
+        onClick: toggle,
+        onKeyDown: (e: KeyboardEvent) => { if (toggle !== undefined && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle() } },
       }, [
-        h(ChevronIcon, { key: 'c', size: 11, open: !closed.has(key) }),
-        `${cb.t(labelKey)} (${count})`,
+        h(ChevronIcon, { key: 'c', size: 11, open }),
+        searching ? `${cb.t(labelKey)} (${hits}/${count})` : `${cb.t(labelKey)} (${count})`,
       ]),
       ...rows,
     ])
   }
+  const sections = [
+    section('local', 'overview.local', tree.local.length, h(BranchIcon, { size: 13 }), trees.local, trees.localPinned),
+    section('remote', 'overview.remote', tree.remote.length, h(BranchIcon, { size: 13 }), trees.remote),
+    section('tags', 'overview.tags', tree.tags.length, h(TagIcon, { size: 13 }), trees.tags),
+  ]
+  const search = h('div', { key: 'search', className: 'gp-branch-search', role: 'search' }, [
+    h('input', {
+      key: 'input', type: 'text', className: 'gp-search gp-branch-search__input',
+      placeholder: cb.t('overview.branchSearch'),
+      'aria-label': cb.t('overview.branchSearch'),
+      spellCheck: false, autoComplete: 'off',
+      value: query,
+      onChange: (e: { target: { value: string } }) => onQuery(e.target.value),
+      // Escape clears the text first; only an empty box lets it reach the
+      // compact sheet, which closes on Escape.
+      onKeyDown: (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && query !== '') { e.preventDefault(); e.stopPropagation(); onQuery('') }
+      },
+    }),
+    query === '' ? null : h('button', {
+      key: 'clear', type: 'button', className: 'gp-icon-btn gp-branch-search__clear',
+      title: cb.t('overview.branchSearchClear'), 'aria-label': cb.t('overview.branchSearchClear'),
+      onClick: () => onQuery(''),
+    }, h(CloseIcon, { size: 12 })),
+  ])
   return h('div', {}, [
     // Two controls on one row: the filter clear (the row's old whole-row click)
     // and the Git Flow entry. The row itself is not a button any more — a
@@ -208,9 +281,11 @@ function renderBranchList(tree: BranchTree | null, treeError: boolean, activeRef
         })
         : null,
     ]),
-    section('local', 'overview.local', tree.local.length, h(BranchIcon, { size: 13 }), trees.local, trees.localPinned),
-    section('remote', 'overview.remote', tree.remote.length, h(BranchIcon, { size: 13 }), trees.remote),
-    section('tags', 'overview.tags', tree.tags.length, h(TagIcon, { size: 13 }), trees.tags),
+    search,
+    ...sections,
+    searching && matched === 0
+      ? h('div', { key: 'no-match', className: 'gp-empty gp-branch-search__empty' }, cb.t('overview.branchSearchEmpty', { query: query.trim() }))
+      : null,
   ])
 }
 
@@ -241,6 +316,7 @@ function BranchSheet({ tree, treeError, activeRef, closed, cb, trees, lead }: {
   lead: JSX.Element | null
 }): JSX.Element {
   const ref = useRef<HTMLDivElement | null>(null)
+  const [query, setQuery] = useState('')
   useDialogFocus(ref, cb.onClose, undefined, undefined, false)
   const sheet = h('div', {
     className: 'gp-sheet-backdrop',
@@ -256,9 +332,8 @@ function BranchSheet({ tree, treeError, activeRef, closed, cb, trees, lead }: {
     ]),
     h('div', { key: 'body', className: 'gp-sheet__body' }, [
       lead,
-      h('div', { key: 'branches' }, renderBranchList(tree, treeError, activeRef, closed, cb, trees)),
+      h('div', { key: 'branches' }, renderBranchList(tree, treeError, activeRef, closed, cb, trees, query, setQuery)),
     ]),
   ]))
   return createPortal(sheet, document.body, 'branch-filter-sheet')
 }
-

@@ -216,6 +216,12 @@ export const es: Record<GitKey, string> = {
   'overview.fetch': 'Recuperar',
   'overview.branchesError': 'Error al cargar las ramas',
   'overview.filterBranch': 'Filtrar por rama',
+
+  'overview.branchSearch': 'Buscar ramas y etiquetas',
+
+  'overview.branchSearchClear': 'Borrar búsqueda',
+
+  'overview.branchSearchEmpty': 'Ninguna rama ni etiqueta contiene «{query}»',
   'overview.moreFilters': 'Más filtros',
   'overview.backToList': 'Volver',
   'overview.createTag': 'Crear etiqueta',

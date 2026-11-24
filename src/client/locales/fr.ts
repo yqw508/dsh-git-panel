@@ -216,6 +216,12 @@ export const fr: Record<GitKey, string> = {
   'overview.fetch': 'Récupérer (fetch)',
   'overview.branchesError': 'Échec du chargement des branches',
   'overview.filterBranch': 'Filtrer par branche',
+
+  'overview.branchSearch': 'Rechercher des branches et des tags',
+
+  'overview.branchSearchClear': 'Effacer la recherche',
+
+  'overview.branchSearchEmpty': 'Aucune branche ni aucun tag ne contient « {query} »',
   'overview.moreFilters': 'Plus de filtres',
   'overview.backToList': 'Retour',
   'overview.createTag': 'Créer une étiquette',

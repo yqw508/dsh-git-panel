@@ -62,6 +62,13 @@ export const CSS = `
 .gp-branch-head__filter:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .gp-branch-head__filter:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-1px}
 .gp-flow{flex:none;display:inline-flex}
+/* Branch-name search under the head row: filters every section in place. */
+.gp-branch-search{position:relative;display:flex;align-items:center;padding:2px 8px 6px 10px}
+.gp-branch-search__input{flex:1 1 auto;min-width:0;width:0;height:26px;padding-right:28px}
+.gp-branch-search__input:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-1px}
+.gp-branch-search__clear{position:absolute;right:11px;top:50%;width:20px;height:20px;margin-top:-12px}
+.gp-branch-search__clear:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.gp-branch-search__empty{height:auto;padding:16px 12px}
 .gp-flow-btn{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border:1px solid var(--dsw-alias-border-l2);border-radius:5px;background:var(--dsw-alias-bg-layer-1);font:inherit;font-size:11px;line-height:18px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap}
 .gp-flow-btn:hover,.gp-flow-btn[aria-expanded="true"]{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}
 .gp-flow-btn:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}

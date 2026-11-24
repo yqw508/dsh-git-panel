@@ -216,6 +216,12 @@ export const en: Record<GitKey, string> = {
   'overview.fetch': 'Fetch',
   'overview.branchesError': 'Failed to load branches',
   'overview.filterBranch': 'Filter by branch',
+
+  'overview.branchSearch': 'Search branches and tags',
+
+  'overview.branchSearchClear': 'Clear search',
+
+  'overview.branchSearchEmpty': 'No branch or tag name contains "{query}"',
   'overview.moreFilters': 'More filters',
   'overview.backToList': 'Back',
   'overview.createTag': 'Create tag',

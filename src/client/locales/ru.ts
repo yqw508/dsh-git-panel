@@ -216,6 +216,12 @@ export const ru: Record<GitKey, string> = {
   'overview.fetch': 'Загрузить',
   'overview.branchesError': 'Не удалось загрузить ветви',
   'overview.filterBranch': 'Фильтр по ветви',
+
+  'overview.branchSearch': 'Поиск веток и тегов',
+
+  'overview.branchSearchClear': 'Очистить поиск',
+
+  'overview.branchSearchEmpty': 'Нет веток или тегов, содержащих «{query}»',
   'overview.moreFilters': 'Другие фильтры',
   'overview.backToList': 'Назад',
   'overview.createTag': 'Создать тег',

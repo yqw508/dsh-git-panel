@@ -216,6 +216,12 @@ export const de: Record<GitKey, string> = {
   'overview.fetch': 'Abrufen',
   'overview.branchesError': 'Branches konnten nicht geladen werden',
   'overview.filterBranch': 'Nach Branch filtern',
+
+  'overview.branchSearch': 'Branches und Tags suchen',
+
+  'overview.branchSearchClear': 'Suche löschen',
+
+  'overview.branchSearchEmpty': 'Kein Branch- oder Tag-Name enthält „{query}“',
   'overview.moreFilters': 'Weitere Filter',
   'overview.backToList': 'Zurück',
   'overview.createTag': 'Tag erstellen',

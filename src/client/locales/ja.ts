@@ -216,6 +216,12 @@ export const ja: Record<GitKey, string> = {
   'overview.fetch': 'フェッチ',
   'overview.branchesError': 'ブランチの読み込みに失敗しました',
   'overview.filterBranch': 'ブランチで絞り込む',
+
+  'overview.branchSearch': 'ブランチまたはタグを検索',
+
+  'overview.branchSearchClear': '検索をクリア',
+
+  'overview.branchSearchEmpty': '「{query}」を含むブランチやタグはありません',
   'overview.moreFilters': 'その他のフィルター',
   'overview.backToList': '戻る',
   'overview.createTag': 'タグを作成',
